@@ -13,8 +13,13 @@ let db;
 // ============================================
 // MONGODB CONNECTION
 // ============================================
+// Use environment variable for MongoDB URI
+const MONGODB_URI = process.env.MONGODB_URI || 
+  "mongodb+srv://ahmadjavaid230903_db_user:wednesday@cluster0.vglny5z.mongodb.net";
+
 MongoClient.connect(
-  "mongodb+srv://ahmadjavaid230903_db_user:wednesday@cluster0.vglny5z.mongodb.net",
+  MONGODB_URI,
+  { useNewUrlParser: true, useUnifiedTopology: true },
   (err, client) => {
     if (err) {
       console.error("MongoDB connection error:", err);
@@ -25,12 +30,26 @@ MongoClient.connect(
   }
 );
 
+// ============================================
+// MIDDLEWARE
+// ============================================
 app.use(express.json());
 app.use(logger);
 
-// CORS - Must be before routes
+// CORS - Updated for production
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    process.env.FRONTEND_URL // Add your frontend URL as env variable
+  ].filter(Boolean);
+
+  const origin = req.headers.origin;
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  }
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT,DELETE");
   res.setHeader(
@@ -39,9 +58,38 @@ app.use((req, res, next) => {
   );
   next();
 });
+
+// ============================================
+// SPECIFIC ROUTES - MUST COME FIRST
+// ============================================
+
+// Root endpoint with API info
 app.get("/", (req, res) => {
-  res.send("After School Activities API - Server Running");
+  res.json({
+    message: "After School Activities API",
+    status: "Running",
+    version: "1.0.0",
+    endpoints: {
+      products: "GET /collection/products",
+      search: "GET /search?query=YOUR_QUERY",
+      placeOrder: "POST /placeorder",
+      updateSpaces: "PUT /update-spaces"
+    }
+  });
 });
+
+// Health check endpoint (important for Render)
+app.get("/health", (req, res) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: "OK",
+    timestamp: Date.now(),
+    database: db ? "connected" : "disconnected"
+  };
+  res.status(200).json(healthcheck);
+});
+
+// SEARCH ENDPOINT - Critical: Must be BEFORE param middleware
 app.get("/search", async (req, res) => {
   console.log("→ Search request:", req.query.query);
   
@@ -50,6 +98,11 @@ app.get("/search", async (req, res) => {
   if (!query || query.trim() === "") {
     console.log("✗ Empty search query");
     return res.status(400).json({ msg: "Search query required" });
+  }
+
+  // Check if database is connected
+  if (!db) {
+    return res.status(503).json({ msg: "Database not connected" });
   }
 
   try {
@@ -84,6 +137,8 @@ app.get("/search", async (req, res) => {
     res.status(500).json({ msg: "Search failed", error: err.message });
   }
 });
+
+// PLACE ORDER ENDPOINT
 app.post("/placeorder", (req, res) => {
   console.log("→ Place order request");
   
@@ -92,6 +147,11 @@ app.post("/placeorder", (req, res) => {
   if (!name || !phone || !cart || cart.length === 0) {
     console.log("✗ Invalid order data");
     return res.status(400).json({ msg: "Invalid order data" });
+  }
+
+  // Check if database is connected
+  if (!db) {
+    return res.status(503).json({ msg: "Database not connected" });
   }
 
   const ordersCollection = db.collection("orders");
@@ -116,6 +176,8 @@ app.post("/placeorder", (req, res) => {
     }
   );
 });
+
+// UPDATE SPACES ENDPOINT
 app.put("/update-spaces", async (req, res) => {
   console.log("→ Update spaces request");
   
@@ -124,6 +186,11 @@ app.put("/update-spaces", async (req, res) => {
   if (!cart || cart.length === 0) {
     console.log("✗ Cart is empty");
     return res.status(400).json({ msg: "Cart is empty" });
+  }
+
+  // Check if database is connected
+  if (!db) {
+    return res.status(503).json({ msg: "Database not connected" });
   }
 
   const productsCollection = db.collection("products");
@@ -144,9 +211,21 @@ app.put("/update-spaces", async (req, res) => {
     res.status(500).json({ msg: "Failed to update spaces", error: err.message });
   }
 });
+
+// ============================================
+// STATIC FILES - AFTER SPECIFIC ROUTES
+// ============================================
 app.use("/images", express.static(path.join(__dirname, "images")));
+
+// ============================================
+// COLLECTION ROUTES - MUST COME AFTER SPECIFIC ROUTES
+// ============================================
+
 // Collection parameter middleware
 app.param("collectionName", (req, res, next, collectionName) => {
+  if (!db) {
+    return res.status(503).json({ msg: "Database not connected" });
+  }
   req.collection = db.collection(collectionName);
   return next();
 });
@@ -157,4 +236,54 @@ app.get("/collection/:collectionName", (req, res, next) => {
     if (e) return next(e);
     res.send(results);
   });
+});
+
+// Get single document by ID
+app.get("/collection/:collectionName/:id", (req, res, next) => {
+  req.collection.findOne({ _id: new ObjectId(req.params.id) }, (e, result) => {
+    if (e) return next(e);
+    res.send(result);
+  });
+});
+
+// Update document by ID
+app.put("/collection/:collectionName/:id", (req, res, next) => {
+  req.collection.update(
+    { _id: new ObjectId(req.params.id) },
+    { $set: req.body },
+    { safe: true, multi: false },
+    (e, result) => {
+      if (e) return next(e);
+      res.send(result.result.n === 1 ? { msg: "success" } : { msg: "error" });
+    }
+  );
+});
+
+// ============================================
+// ERROR HANDLER
+// ============================================
+app.use((err, req, res, next) => {
+  console.error("✗ Server Error:", err);
+  res.status(500).json({ error: err.message });
+});
+
+// ============================================
+// START SERVER
+// ============================================
+// Use environment variable for PORT (Render assigns this)
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("=".repeat(50));
+  console.log(`✓ Server started on port ${PORT}`);
+  console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log("=".repeat(50));
+  console.log("Available endpoints:");
+  console.log("  GET  /");
+  console.log("  GET  /health");
+  console.log("  GET  /collection/products");
+  console.log("  GET  /search?query=YOUR_QUERY");
+  console.log("  POST /placeorder");
+  console.log("  PUT  /update-spaces");
+  console.log("=".repeat(50));
 });
