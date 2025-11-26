@@ -84,3 +84,35 @@ app.get("/search", async (req, res) => {
     res.status(500).json({ msg: "Search failed", error: err.message });
   }
 });
+app.post("/placeorder", (req, res) => {
+  console.log("→ Place order request");
+  
+  const { name, phone, cart } = req.body;
+
+  if (!name || !phone || !cart || cart.length === 0) {
+    console.log("✗ Invalid order data");
+    return res.status(400).json({ msg: "Invalid order data" });
+  }
+
+  const ordersCollection = db.collection("orders");
+
+  ordersCollection.insertOne(
+    {
+      name: name,
+      phone: phone,
+      cart: cart,
+      createdAt: new Date(),
+    },
+    (err, result) => {
+      if (err) {
+        console.error("✗ Error saving order:", err);
+        return res.status(500).json({ msg: "Error placing order" });
+      }
+      console.log("✓ Order placed:", result.insertedId);
+      res.json({
+        msg: "Order placed successfully",
+        orderId: result.insertedId,
+      });
+    }
+  );
+});
