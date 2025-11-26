@@ -42,3 +42,45 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   res.send("After School Activities API - Server Running");
 });
+app.get("/search", async (req, res) => {
+  console.log("→ Search request:", req.query.query);
+  
+  const query = req.query.query;
+
+  if (!query || query.trim() === "") {
+    console.log("✗ Empty search query");
+    return res.status(400).json({ msg: "Search query required" });
+  }
+
+  try {
+    const productsCollection = db.collection("products");
+
+    // Check if query is numeric
+    const isNumeric = !isNaN(query) && query.trim() !== "";
+    const numericQuery = isNumeric ? parseFloat(query) : null;
+
+    // Build search conditions
+    const searchConditions = [
+      { subject: { $regex: query, $options: "i" } },
+      { location: { $regex: query, $options: "i" } }
+    ];
+
+    // Add numeric search if applicable
+    if (isNumeric) {
+      searchConditions.push({ price: numericQuery });
+      searchConditions.push({ Spaces: numericQuery });
+    }
+
+    // Execute search
+    const results = await productsCollection.find({
+      $or: searchConditions
+    }).toArray();
+
+    console.log(`✓ Found ${results.length} results`);
+    res.json(results);
+
+  } catch (err) {
+    console.error("✗ Search error:", err);
+    res.status(500).json({ msg: "Search failed", error: err.message });
+  }
+});
