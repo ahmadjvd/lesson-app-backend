@@ -144,3 +144,4 @@ app.put("/update-spaces", async (req, res) => {
     res.status(500).json({ msg: "Failed to update spaces", error: err.message });
   }
 });
+app.use("/images", express.static(path.join(__dirname, "images")));
