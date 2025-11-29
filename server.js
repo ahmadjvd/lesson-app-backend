@@ -80,7 +80,7 @@ app.get("/", (req, res) => {
       products: "GET /collection/products",
       search: "GET /search?query=YOUR_QUERY",
       placeOrder: "POST /placeorder",
-      updateSpaces: "PUT /update-spaces"
+      updateSpaces: "PUT /update-Spaces"
     }
   });
 });
@@ -185,8 +185,8 @@ app.post("/placeorder", (req, res) => {
 });
 
 // UPDATE SPACES ENDPOINT
-app.put("/update-spaces", async (req, res) => {
-  console.log("→ Update spaces request");
+app.put("/update-Spaces", async (req, res) => {
+  console.log("→ Update Spaces request");
   
   const { cart } = req.body;
 
@@ -214,8 +214,8 @@ app.put("/update-spaces", async (req, res) => {
     res.json({ msg: "Spaces updated successfully" });
 
   } catch (err) {
-    console.error("✗ Error updating spaces:", err);
-    res.status(500).json({ msg: "Failed to update spaces", error: err.message });
+    console.error("✗ Error updating Spaces:", err);
+    res.status(500).json({ msg: "Failed to update Spaces", error: err.message });
   }
 });
 
@@ -291,6 +291,6 @@ app.listen(PORT, () => {
   console.log("  GET  /collection/products");
   console.log("  GET  /search?query=YOUR_QUERY");
   console.log("  POST /placeorder");
-  console.log("  PUT  /update-spaces");
+  console.log("  PUT  /update-Spaces");
   console.log("=".repeat(50));
 });
