@@ -147,7 +147,7 @@ app.get("/search", async (req, res) => {
 
 // PLACE ORDER ENDPOINT
 app.post("/placeorder", (req, res) => {
-  console.log("→ Place order request");
+  console.log("→ POST /placeorder request");
   
   const { name, phone, cart } = req.body;
 
@@ -156,7 +156,6 @@ app.post("/placeorder", (req, res) => {
     return res.status(400).json({ msg: "Invalid order data" });
   }
 
-  // Check if database is connected
   if (!db) {
     return res.status(503).json({ msg: "Database not connected" });
   }
@@ -175,7 +174,7 @@ app.post("/placeorder", (req, res) => {
         console.error("✗ Error saving order:", err);
         return res.status(500).json({ msg: "Error placing order" });
       }
-      console.log("✓ Order placed:", result.insertedId);
+      console.log("✓ POST /placeorder: Order placed successfully. Order ID:", result.insertedId);
       res.json({
         msg: "Order placed successfully",
         orderId: result.insertedId,
@@ -184,9 +183,64 @@ app.post("/placeorder", (req, res) => {
   );
 });
 
-// UPDATE SPACES ENDPOINT
+// ========================================
+// REQUIRED ROUTE 3: PUT /update-lesson/:id (5%)
+// Generic update for ANY attribute
+// ========================================
+app.put("/update-lesson/:id", async (req, res) => {
+  console.log("→ PUT /update-lesson request for ID:", req.params.id);
+  
+  const { id } = req.params;
+  const updateData = req.body;
+
+  // Validate inputs
+  if (!id || !updateData || Object.keys(updateData).length === 0) {
+    console.log("✗ Missing ID or update data");
+    return res.status(400).json({ msg: "Invalid ID or update data" });
+  }
+
+  if (!db) {
+    return res.status(503).json({ msg: "Database not connected" });
+  }
+
+  try {
+    const productsCollection = db.collection("products");
+    
+    // Update ANY attributes provided in request body
+    const result = await productsCollection.updateOne(
+      { id: parseInt(id) },
+      { $set: updateData }  // Can update ANY field
+    );
+
+    if (result.matchedCount === 0) {
+      console.log("✗ Lesson not found:", id);
+      return res.status(404).json({ msg: "Lesson not found" });
+    }
+
+    if (result.modifiedCount === 0) {
+      console.log("⚠ No changes made for lesson:", id);
+      return res.status(200).json({ 
+        msg: "No changes made", 
+        id: id 
+      });
+    }
+
+    console.log(`✓ PUT /update-lesson: Successfully updated lesson ${id}. Updated fields:`, updateData);
+    res.json({ 
+      msg: "Lesson updated successfully",
+      updatedFields: updateData,
+      modifiedCount: result.modifiedCount
+    });
+
+  } catch (err) {
+    console.error("✗ Error updating lesson:", err);
+    res.status(500).json({ msg: "Failed to update lesson", error: err.message });
+  }
+});
+
+// LEGACY UPDATE SPACES ENDPOINT (Still used by frontend)
 app.put("/update-Spaces", async (req, res) => {
-  console.log("→ Update Spaces request");
+  console.log("→ PUT /update-Spaces request");
   
   const { cart } = req.body;
 
@@ -195,7 +249,6 @@ app.put("/update-Spaces", async (req, res) => {
     return res.status(400).json({ msg: "Cart is empty" });
   }
 
-  // Check if database is connected
   if (!db) {
     return res.status(503).json({ msg: "Database not connected" });
   }
@@ -210,7 +263,7 @@ app.put("/update-Spaces", async (req, res) => {
       );
     }
 
-    console.log("✓ Spaces updated successfully");
+    console.log("✓ PUT /update-Spaces: Spaces updated successfully");
     res.json({ msg: "Spaces updated successfully" });
 
   } catch (err) {
@@ -223,6 +276,15 @@ app.put("/update-Spaces", async (req, res) => {
 // STATIC FILES - AFTER SPECIFIC ROUTES
 // ============================================
 app.use("/images", express.static(path.join(__dirname, "images")));
+
+// 404 Handler for missing images
+app.use("/images", (req, res) => {
+  console.log("✗ Image not found:", req.url);
+  res.status(404).json({ 
+    msg: "Image not found", 
+    requestedFile: req.url 
+  });
+});
 
 // ============================================
 // COLLECTION ROUTES - MUST COME AFTER SPECIFIC ROUTES
@@ -277,7 +339,6 @@ app.use((err, req, res, next) => {
 // ============================================
 // START SERVER
 // ============================================
-// Use environment variable for PORT (Render assigns this)
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
@@ -291,6 +352,7 @@ app.listen(PORT, () => {
   console.log("  GET  /collection/products");
   console.log("  GET  /search?query=YOUR_QUERY");
   console.log("  POST /placeorder");
+  console.log("  PUT  /update-lesson/:id (REQUIRED)");
   console.log("  PUT  /update-Spaces");
   console.log("=".repeat(50));
 });
