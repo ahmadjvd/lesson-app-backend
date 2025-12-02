@@ -1,6 +1,7 @@
 function logger(req, res, next) {
     console.log("Logger Middleware Triggered!"); // Debugging line
     
+        const timestamp = new Date().toISOString();
     // Log the request method and URL
         console.log("---------------------------");
         console.log("New request received:");
