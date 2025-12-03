@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const logger = require("./logger");
 
 const MongoClient = require("mongodb").MongoClient;
 const ObjectId = require("mongodb").ObjectId;
@@ -31,11 +30,35 @@ MongoClient.connect(
 );
 
 // ============================================
+// LOGGER MIDDLEWARE  ← ADD HERE
+// ============================================
+function loggerMiddleware(req, res, next) {
+  const timestamp = new Date().toISOString();
+  
+  console.log("\n" + "=".repeat(50));
+  console.log("📨 REQUEST RECEIVED");
+  console.log("=".repeat(50));
+  console.log(`Timestamp: ${timestamp}`);
+  console.log(`Method: ${req.method}`);
+  console.log(`URL: ${req.url}`);
+  
+  if (req.method !== 'GET' && Object.keys(req.body).length > 0) {
+    console.log(`Body: ${JSON.stringify(req.body)}`);
+  }
+  
+  res.on('finish', () => {
+    console.log(`Status: ${res.statusCode}`);
+    console.log("=".repeat(50) + "\n");
+  });
+  
+  next();
+}
+
+// ============================================
 // MIDDLEWARE
 // ============================================
 app.use(express.json());
-app.use(logger);
-
+app.use(loggerMiddleware);
 // CORS - Updated for production
 app.use((req, res, next) => {
   const allowedOrigins = [
