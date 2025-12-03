@@ -10,6 +10,24 @@ const ObjectId = require("mongodb").ObjectId;
 let db;
 
 // ============================================
+// LOGGER MIDDLEWARE
+// ============================================
+function logger(req, res, next) {
+  console.log("Logger Middleware Triggered!");
+  
+  const timestamp = new Date().toISOString();
+  console.log("---------------------------");
+  console.log("New request received:");
+  console.log("Timestamp:", timestamp);
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+  console.log("Status Code:", res.statusCode);
+  console.log("---------------------------");
+  
+  next(); 
+}
+
+// ============================================
 // MONGODB CONNECTION
 // ============================================
 // Use environment variable for MongoDB URI
@@ -30,50 +48,33 @@ MongoClient.connect(
 );
 
 // ============================================
-// LOGGER MIDDLEWARE  ← ADD HERE
-// ============================================
-function loggerMiddleware(req, res, next) {
-  const timestamp = new Date().toISOString();
-  
-  console.log("\n" + "=".repeat(50));
-  console.log("📨 REQUEST RECEIVED");
-  console.log("=".repeat(50));
-  console.log(`Timestamp: ${timestamp}`);
-  console.log(`Method: ${req.method}`);
-  console.log(`URL: ${req.url}`);
-  
-  if (req.method !== 'GET' && Object.keys(req.body).length > 0) {
-    console.log(`Body: ${JSON.stringify(req.body)}`);
-  }
-  
-  res.on('finish', () => {
-    console.log(`Status: ${res.statusCode}`);
-    console.log("=".repeat(50) + "\n");
-  });
-  
-  next();
-}
-
-// ============================================
 // MIDDLEWARE
 // ============================================
 app.use(express.json());
-app.use(loggerMiddleware);
-// CORS - Allow all origins
-app.use((req, res, next) => {
-  // Allow all origins
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  
-  // Allow credentials
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  
-  // Allow all methods
-  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS, POST, PUT, DELETE, PATCH");
-  
-  // Allow all headers
-  res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+app.use(logger);
 
-  // Handle preflight requests
+// CORS - Updated for production
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://ahmadjvd.github.io"
+  ];
+
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT,DELETE");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers"
+  );
+
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
