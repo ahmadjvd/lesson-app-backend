@@ -59,28 +59,21 @@ function loggerMiddleware(req, res, next) {
 // ============================================
 app.use(express.json());
 app.use(loggerMiddleware);
-// CORS - Updated for production
+// CORS - Allow all origins
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "https://ahmadjvd.github.io"
-  ];
-
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
+  // Allow all origins
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  
+  // Allow credentials
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT,DELETE");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers"
-  );
+  
+  // Allow all methods
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS, POST, PUT, DELETE, PATCH");
+  
+  // Allow all headers
+  res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
 
+  // Handle preflight requests
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
